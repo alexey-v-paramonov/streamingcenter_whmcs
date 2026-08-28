@@ -5,6 +5,7 @@
 use WHMCS\Database\Capsule;
 use WHMCS\View\Menu\Item;
 use WHMCS\Product\Product;
+use WHMCS\Service\Service;
 
 add_hook('OverrideModuleUsernameGeneration', 1, function(array $params) {
 
@@ -79,12 +80,23 @@ add_hook('OverrideModuleUsernameGeneration', 1, function(array $params) {
 // Admin area page tweaks
 add_hook('AdminAreaFooterOutput', 1, function($vars) {
 
-    // Client's products/services page
-    if ($vars['filename'] === 'clientsservices') {
+    // Client's products/services page.
+    // Only apply tweaks when the service being viewed uses the streamingcenter
+    // module, otherwise the global [name='username'] selector would also
+    // lock the username field of services belonging to other modules.
+    if ($vars['filename'] === 'clientsservices' && isset($_GET['id'])) {
+        $service = Service::find((int) $_GET['id']);
+        if (!$service || !$service->product || $service->product->module !== 'streamingcenter') {
+            return;
+        }
 return <<<JAVASCRIPT
 <script>
 jQuery(document).ready(function(){
     function tweakStreamingInfo() {
+        // Guard against the module being switched to a different one on the page.
+        if (jQuery("select[name='module']").val() !== 'streamingcenter') {
+            return;
+        }
         jQuery("[name='username']").attr('readonly','readonly').css("backgroundColor","#eee").css("pointerEvents","none");
         jQuery("[name='server']").attr('readonly','readonly');
         jQuery("[name='streamingcenter_panel_port']").attr('readonly','readonly').css("backgroundColor","#eee").css("pointerEvents","none");
