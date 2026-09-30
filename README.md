@@ -58,6 +58,21 @@ The module settings allow you to:
 
 For detailed setup instructions, refer to the [documentation](https://streaming.center/docs/system/whmcs/)
 
+### Social streaming limit (upgrading)
+
+The four per-platform options — *Allow Youtube / Facebook / VK.com / Telegram
+streaming* — are replaced by one option, **Social streams limit**: how many streams
+to YouTube, Telegram and other platforms an account may have across all its
+stations. `0` turns social streaming off; leaving it blank uses the template's value
+(or, with no template, off), and on a package change leaves the account's current
+value alone.
+
+The old options are kept in the product's module settings, marked *(Deprecated)*
+and moved out of Simple Mode, because WHMCS stores module options by position:
+removing them would shift every option after them. They are no longer sent to the
+server. Existing accounts keep the limit the server gave them on upgrade until you
+set a value.
+
 ---
 
 ## 🛡 License
