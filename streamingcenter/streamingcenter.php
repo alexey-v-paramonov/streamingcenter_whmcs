@@ -110,37 +110,49 @@ function streamingcenter_ConfigOptions() {
             "Default"      => "0",
             "SimpleMode"   => true,
         ],
-        # configoption9
+        # configoption9 — DEPRECATED, replaced by "Social streams limit" (configoption21).
+        # Kept only to hold its slot: WHMCS stores options by POSITION, so removing it
+        # would shift every later option onto the wrong stored value. Not sent to the
+        # server, and out of Simple Mode so it does not show on the default screen.
         "youtube_streaming_enabled" => [
-            "FriendlyName" => "Allow Youtube streaming",
+            "FriendlyName" => "(Deprecated) Allow Youtube streaming",
             "Type"         => "yesno",
-            "Description"  => "Increased CPU load",
+            "Description"  => "Unused — see Social streams limit",
             "Default"      => "no",
-            "SimpleMode"   => true,
+            "SimpleMode"   => false,
         ],
-        # configoption10
+        # configoption10 — DEPRECATED, replaced by "Social streams limit" (configoption21).
+        # Kept only to hold its slot: WHMCS stores options by POSITION, so removing it
+        # would shift every later option onto the wrong stored value. Not sent to the
+        # server, and out of Simple Mode so it does not show on the default screen.
         "fb_streaming_enabled" => [
-            "FriendlyName" => "Allow Facebook streaming",
+            "FriendlyName" => "(Deprecated) Allow Facebook streaming",
             "Type"         => "yesno",
-            "Description"  => "Increased CPU load",
+            "Description"  => "Unused — see Social streams limit",
             "Default"      => "no",
-            "SimpleMode"   => true,
+            "SimpleMode"   => false,
         ],
-        # configoption11
+        # configoption11 — DEPRECATED, replaced by "Social streams limit" (configoption21).
+        # Kept only to hold its slot: WHMCS stores options by POSITION, so removing it
+        # would shift every later option onto the wrong stored value. Not sent to the
+        # server, and out of Simple Mode so it does not show on the default screen.
         "vk_streaming_enabled" => [
-            "FriendlyName" => "Allow VK.com streaming",
+            "FriendlyName" => "(Deprecated) Allow VK.com streaming",
             "Type"         => "yesno",
-            "Description"  => "Increased CPU load",
+            "Description"  => "Unused — see Social streams limit",
             "Default"      => "no",
-            "SimpleMode"   => true,
+            "SimpleMode"   => false,
         ],
-        # configoption12
+        # configoption12 — DEPRECATED, replaced by "Social streams limit" (configoption21).
+        # Kept only to hold its slot: WHMCS stores options by POSITION, so removing it
+        # would shift every later option onto the wrong stored value. Not sent to the
+        # server, and out of Simple Mode so it does not show on the default screen.
         "tg_streaming_enabled" => [
-            "FriendlyName" => "Allow Telegram streaming",
+            "FriendlyName" => "(Deprecated) Allow Telegram streaming",
             "Type"         => "yesno",
-            "Description"  => "Increased CPU load",
+            "Description"  => "Unused — see Social streams limit",
             "Default"      => "no",
-            "SimpleMode"   => true,
+            "SimpleMode"   => false,
         ],
         # configoption13
         "geoblocking_enabled" => [
@@ -195,7 +207,7 @@ function streamingcenter_ConfigOptions() {
             "SimpleMode"   => true,
         ],
     
-        # configoption18
+        # configoption19
         "save_dj_streams_enabled" => [
             "FriendlyName" => "Enable Live stream recording",
             "Type"         => "yesno",
@@ -203,7 +215,40 @@ function streamingcenter_ConfigOptions() {
             "Default"      => "no",
             "SimpleMode"   => true,
         ],
+        # configoption20
+        "hls_enabled" => [
+            "FriendlyName" => "Allow HLS streaming",
+            "Type"         => "yesno",
+            "Description"  => "HLS listeners do not count toward the listener limit",
+            "Default"      => "no",
+            "SimpleMode"   => true,
+        ],
+        # configoption21 — replaces the four per-platform switches (9-12).
+        # Blank by default ON PURPOSE: blank means "take the template's value" (and
+        # leaves an existing account's value alone on a package change). A default of
+        # "0" would be sent explicitly and override every template's limit with "off".
+        "limit_social_streams" => [
+            "FriendlyName" => "Social streams limit",
+            "Type"         => "text",
+            "Description"  => "Streams to YouTube, Telegram and other platforms, across all stations. 0 = off. Blank = use the template (no template: off).",
+            "Default"      => "",
+            "SimpleMode"   => true,
+        ],
     ];
+}
+
+/**
+ * The social-stream limit to send, or null to send none.
+ *
+ * Blank (the product predates the option, or deliberately takes the template's
+ * value) returns null, so the server keeps what it has.
+ */
+function streamingcenter_socialLimit(array $params) {
+    $value = isset($params['configoption21']) ? trim((string)$params['configoption21']) : '';
+    if ($value === '' || !ctype_digit($value)) {
+        return null;
+    }
+    return (int)$value;
 }
 
 /**
@@ -580,10 +625,6 @@ function streamingcenter_CreateAccount(array $params)
                 'limit_bitrate' => $params['configoption6'],
                 'limit_du' => $params['configoption7'],
                 'limit_traffic' => $params['configoption8'],
-                'youtube_streaming_enabled' => $params['configoption9'],
-                'fb_streaming_enabled' => $params['configoption10'],
-                'vk_streaming_enabled' => $params['configoption11'],
-                'tg_streaming_enabled' => $params['configoption12'],
                 'geoblocking_enabled' => $params['configoption13'],
                 'stereo_tool_enabled' => $params['configoption14'],
                 'url_branding_enabled' => $params['configoption15'],
@@ -592,6 +633,12 @@ function streamingcenter_CreateAccount(array $params)
                 'podcasts_enabled' => $params['configoption18'],
                 'save_dj_streams_enabled' => $params['configoption19'],
             ]);        
+        }
+        if (array_key_exists('configoption20', $params)) {
+            $postData['hls_enabled'] = $params['configoption20'];
+        }
+        if (streamingcenter_socialLimit($params) !== null) {
+            $postData['limit_social_streams'] = streamingcenter_socialLimit($params);
         }
         
         $response = streamingcenter_makeApiRequest($params, $endpoint, 'POST', $postData);
@@ -642,10 +689,6 @@ function streamingcenter_ChangePackage(array $params) {
                 'limit_bitrate' => $params['configoption6'],
                 'limit_du' => $params['configoption7'],
                 'limit_traffic' => $params['configoption8'],
-                'youtube_streaming_enabled' => $params['configoption9'] == 'on' ? true : false,
-                'fb_streaming_enabled' => $params['configoption10'] == 'on' ? true : false,
-                'vk_streaming_enabled' => $params['configoption11'] == 'on' ? true : false,
-                'tg_streaming_enabled' => $params['configoption12'] == 'on' ? true : false,
                 'geoblocking_enabled' => $params['configoption13'] == 'on' ? true : false,
                 'stereo_tool_enabled' => $params['configoption14'] == 'on' ? true : false,
                 'url_branding_enabled' => $params['configoption15'] == 'on' ? true : false,
@@ -654,6 +697,15 @@ function streamingcenter_ChangePackage(array $params) {
                 'podcasts_enabled' => $params['configoption18'] == 'on' ? true : false,
                 'save_dj_streams_enabled' => $params['configoption19'] == 'on' ? true : false,
             ]);        
+        }
+        // Old products without the new option keep their template/account value.
+        if (array_key_exists('configoption20', $params)) {
+            $postData['hls_enabled'] = $params['configoption20'] == 'on';
+        }
+        // Blank = the product predates the option or takes the template's value:
+        // send nothing and the account keeps its limit.
+        if (streamingcenter_socialLimit($params) !== null) {
+            $postData['limit_social_streams'] = streamingcenter_socialLimit($params);
         }
         
         $response = streamingcenter_makeApiRequest($params, $endpoint, 'PATCH', $postData);
@@ -796,10 +848,7 @@ function streamingcenter_AdminServicesTabFields(array $params)
             'Maximum bitrate' => '<select name="streamingcenter_limit_bitrate">'.$bitratesOptions.'</select>',
             'Disk quota (megabytes)' => '<input type="number" name="streamingcenter_limit_du" min="0" value="' . ($data->limit_du ?? '') . '" />',
             'Traffic per month (megabytes)' => '<input type="number" name="streamingcenter_limit_traffic" min="0" value="' . ($data->limit_traffic ?? '') . '" />',
-            'Allow Youtube streaming' => '<input type="checkbox" name="streamingcenter_youtube_streaming_enabled" value="on" '.($data->youtube_streaming_enabled ? 'checked' : '').' />',
-            'Allow Facebook streaming' => '<input type="checkbox" name="streamingcenter_fb_streaming_enabled" value="on" '.($data->youtube_streaming_enabled ? 'checked' : '').' />',
-            'Allow VK.com streaming' => '<input type="checkbox" name="streamingcenter_vk_streaming_enabled" value="on" '.($data->vk_streaming_enabled ? 'checked' : '').' />',
-            'Allow Telegram streaming' => '<input type="checkbox" name="streamingcenter_tg_streaming_enabled" value="on" '.($data->tg_streaming_enabled ? 'checked' : '').' />',
+            'Social streams limit (0 = off)' => '<input type="number" name="streamingcenter_limit_social_streams" min="0" value="' . ($data->limit_social_streams ?? '') . '" />',
             'Enable GeoBlocking' => '<input type="checkbox" name="streamingcenter_geoblocking_enabled" value="on" '.($data->geoblocking_enabled ? 'checked' : '').' />',
             'Enable StereoTool audio processing' => '<input type="checkbox" name="streamingcenter_stereo_tool_enabled" value="on" '.($data->stereo_tool_enabled ? 'checked' : '').' />',
             'User can set custom URL for the station' => '<input type="checkbox" name="streamingcenter_url_branding_enabled" value="on" '.($data->url_branding_enabled ? 'checked' : '').' />',
@@ -807,6 +856,7 @@ function streamingcenter_AdminServicesTabFields(array $params)
             'Enable Text-to-Speech' => '<input type="checkbox" name="streamingcentertts_enabled" value="on" '.($data->tts_enabled ? 'checked' : '').' />',
             'Enable Podcasts' => '<input type="checkbox" name="streamingcenter_podcasts_enabled" value="on" '.($data->podcasts_enabled ? 'checked' : '').' />',
             'Enable Live stream recording' => '<input type="checkbox" name="streamingcenter_save_dj_streams_enabled" value="on" '.($data->save_dj_streams_enabled ? 'checked' : '').' />',
+            'Allow HLS streaming' => '<input type="checkbox" name="streamingcenter_hls_enabled" value="on" '.(!empty($data->hls_enabled) ? 'checked' : '').' />',
         ];
         
     } catch (Exception $e) {
@@ -841,10 +891,6 @@ function streamingcenter_AdminServicesTabFieldsSave(array $params)
             'limit_du' => $_REQUEST['streamingcenter_limit_du'],
             'limit_traffic' => $_REQUEST['streamingcenter_limit_traffic'],
 
-            'youtube_streaming_enabled' => isset($_REQUEST['streamingcenter_youtube_streaming_enabled']) ? true : false,
-            'fb_streaming_enabled' => isset($_REQUEST['streamingcenter_fb_streaming_enabled']) ? true : false,
-            'vk_streaming_enabled' => isset($_REQUEST['streamingcenter_vk_streaming_enabled']) ? true : false,
-            'tg_streaming_enabled' => isset($_REQUEST['streamingcenter_tg_streaming_enabled']) ? true : false,
             'geoblocking_enabled' => isset($_REQUEST['streamingcenter_geoblocking_enabled']) ? true : false,
             'stereo_tool_enabled' => isset($_REQUEST['streamingcenter_stereo_tool_enabled']) ? true : false,
             'url_branding_enabled' => isset($_REQUEST['streamingcenter_url_branding_enabled']) ? true : false,
@@ -852,7 +898,14 @@ function streamingcenter_AdminServicesTabFieldsSave(array $params)
             'tts_enabled' => isset($_REQUEST['streamingcentertts_enabled']) ? true : false,
             'podcasts_enabled' => isset($_REQUEST['streamingcenter_podcasts_enabled']) ? true : false,
             'save_dj_streams_enabled' => isset($_REQUEST['streamingcenter_save_dj_streams_enabled']) ? true : false,
+            'hls_enabled' => isset($_REQUEST['streamingcenter_hls_enabled']),
         ]);
+        // Left out when blank, so an empty box never switches social streaming off.
+        $socialLimit = isset($_REQUEST['streamingcenter_limit_social_streams'])
+            ? trim((string)$_REQUEST['streamingcenter_limit_social_streams']) : '';
+        if ($socialLimit !== '' && ctype_digit($socialLimit)) {
+            $postData['limit_social_streams'] = (int)$socialLimit;
+        }
         $response = streamingcenter_makeApiRequest($params, $endpoint, 'PATCH', $postData);
         
         if (!$response['success']) {

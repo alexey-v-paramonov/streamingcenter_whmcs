@@ -78,32 +78,18 @@
             </div>
             
             {* Features *}
-            {if $accountData->youtube_streaming_enabled || $accountData->fb_streaming_enabled || $accountData->tg_streaming_enabled || $accountData->website_enabled}
+            {* Social streaming is one per-account limit now (limit_social_streams, 0 = off);
+               the old per-platform flags are deprecated and no longer maintained. *}
+            {if $accountData->limit_social_streams > 0 || $accountData->website_enabled}
             <div class="row">
                 <div class="col-md-12">
                     <h4>Enabled Features</h4>
                     <div class="row">
-                        {if $accountData->youtube_streaming_enabled}
+                        {if $accountData->limit_social_streams > 0}
                         <div class="col-md-3">
                             <div class="alert alert-success text-center">
-                                <i class="fab fa-youtube"></i><br>
-                                YouTube Streaming
-                            </div>
-                        </div>
-                        {/if}
-                        {if $accountData->fb_streaming_enabled}
-                        <div class="col-md-3">
-                            <div class="alert alert-success text-center">
-                                <i class="fab fa-facebook"></i><br>
-                                Facebook Streaming
-                            </div>
-                        </div>
-                        {/if}
-                        {if $accountData->tg_streaming_enabled}
-                        <div class="col-md-3">
-                            <div class="alert alert-success text-center">
-                                <i class="fab fa-telegram"></i><br>
-                                Telegram Streaming
+                                <i class="fas fa-broadcast-tower"></i><br>
+                                Social Streaming: up to {$accountData->limit_social_streams}
                             </div>
                         </div>
                         {/if}
