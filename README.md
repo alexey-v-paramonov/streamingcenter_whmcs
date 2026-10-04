@@ -85,6 +85,12 @@ any order:
 The admin services tab no longer shows them; it carries the account's current values
 through a save unchanged.
 
+### HLS
+
+*Allow HLS streaming* applies to products **without** a template. With a template, the
+template's HLS setting decides — the option is disabled on the product screen when a
+template is selected, and the module sends no override.
+
 ---
 
 ## 🛡 License

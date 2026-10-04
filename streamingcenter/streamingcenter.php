@@ -273,6 +273,44 @@ function streamingcenter_legacySocialFlags(array $values) {
 }
 
 /**
+ * An API error as one readable string.
+ *
+ * The panel answers some failures with a STRING ("username_exists") and validation
+ * failures with its serializer's errors — an OBJECT of field => [messages], e.g.
+ * {"limit_social_streams": ["reseller_social_limit_exceeded"]}. Callers use the
+ * error as an array key and concatenate it into a message, which with an object
+ * threw TypeError / Error — neither is an Exception, so the module's own catch
+ * blocks did not stop them and provisioning or the package change crashed.
+ *
+ * A lone non-field error becomes "non_field_errors_<code>", the shape the
+ * CreateAccount message table already uses; anything else "field: msg, msg; ...".
+ */
+function streamingcenter_errorText($error) {
+    if (is_string($error)) {
+        return $error;
+    }
+    if (is_scalar($error) || $error === null) {
+        return (string)$error;
+    }
+    $parts = [];
+    foreach ((array)$error as $field => $messages) {
+        $list = [];
+        foreach ((is_array($messages) || is_object($messages)) ? (array)$messages : [$messages] as $m) {
+            $list[] = (is_array($m) || is_object($m)) ? streamingcenter_errorText($m) : (string)$m;
+        }
+        $parts[] = [$field, $list];
+    }
+    if (count($parts) === 1 && $parts[0][0] === 'non_field_errors' && count($parts[0][1]) === 1) {
+        return 'non_field_errors_' . $parts[0][1][0];
+    }
+    $out = [];
+    foreach ($parts as [$field, $list]) {
+        $out[] = (is_int($field) ? '' : $field . ': ') . implode(', ', $list);
+    }
+    return implode('; ', $out);
+}
+
+/**
  * Make API request to Streaming.Center server
  */
 function streamingcenter_makeApiRequest($params, $endpoint, $method = 'POST', $postData = []) {
@@ -339,8 +377,10 @@ function streamingcenter_makeApiRequest($params, $endpoint, $method = 'POST', $p
         ];
     }
     
+    // Always a string from here on: see streamingcenter_errorText().
     if ($httpCode !== 200) {
-        $errorMsg = isset($data->error) ? $data->error : 'HTTP Error ' . $httpCode;
+        $errorMsg = isset($data->error) ? streamingcenter_errorText($data->error)
+                                        : 'HTTP Error ' . $httpCode;
         return [
             'success' => false,
             'error' => $errorMsg
@@ -350,7 +390,7 @@ function streamingcenter_makeApiRequest($params, $endpoint, $method = 'POST', $p
     if (isset($data->error)) {
         return [
             'success' => false,
-            'error' => $data->error
+            'error' => streamingcenter_errorText($data->error)
         ];
     }
     
@@ -665,8 +705,14 @@ function streamingcenter_CreateAccount(array $params)
                 'save_dj_streams_enabled' => $params['configoption19'],
             ]);        
         }
-        if (array_key_exists('configoption20', $params)) {
-            $postData['hls_enabled'] = $params['configoption20'];
+        // HLS only WITHOUT a template. With one, the template decides, as it does for
+        // every other feature switch — and the product screen disables this checkbox
+        // when a template is chosen (hooks.php), so its value there means nothing.
+        // WHMCS passes every option slot, blank when unset, so "send it when the key
+        // exists" sent an explicit OFF for every template product and switched HLS
+        // off on accounts whose template enables it.
+        if ($params['configoption1'] == 'no_template') {
+            $postData['hls_enabled'] = ($params['configoption20'] ?? '');
         }
         if (streamingcenter_socialLimit($params) !== null) {
             $postData['limit_social_streams'] = streamingcenter_socialLimit($params);
@@ -736,9 +782,9 @@ function streamingcenter_ChangePackage(array $params) {
                 'save_dj_streams_enabled' => $params['configoption19'] == 'on' ? true : false,
             ]);        
         }
-        // Old products without the new option keep their template/account value.
-        if (array_key_exists('configoption20', $params)) {
-            $postData['hls_enabled'] = $params['configoption20'] == 'on';
+        // Only without a template; see CreateAccount.
+        if ($params['configoption1'] == 'no_template') {
+            $postData['hls_enabled'] = ($params['configoption20'] ?? '') == 'on';
         }
         // Blank = the product predates the option or takes the template's value:
         // send nothing and the account keeps its limit.
