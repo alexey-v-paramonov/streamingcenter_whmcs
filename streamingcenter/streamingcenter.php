@@ -252,6 +252,27 @@ function streamingcenter_socialLimit(array $params) {
 }
 
 /**
+ * The four deprecated per-platform switches, for the request.
+ *
+ * Still SENT, although the product no longer shows them. This module is upgraded on
+ * each provider's WHMCS independently of the admin panel it talks to, and an admin
+ * panel that predates the social-streams limit builds its package change from these
+ * four values: a request without them reaches its serializer as null, which a
+ * boolean field rejects, and the whole package change (or admin-tab save) fails. A
+ * current panel stores them and acts only on limit_social_streams.
+ *
+ * $values: platform flag => truthy/falsy, in the shape the endpoint already got.
+ */
+function streamingcenter_legacySocialFlags(array $values) {
+    $out = [];
+    foreach (['youtube_streaming_enabled', 'fb_streaming_enabled',
+              'vk_streaming_enabled', 'tg_streaming_enabled'] as $flag) {
+        $out[$flag] = $values[$flag];
+    }
+    return $out;
+}
+
+/**
  * Make API request to Streaming.Center server
  */
 function streamingcenter_makeApiRequest($params, $endpoint, $method = 'POST', $postData = []) {
@@ -298,7 +319,10 @@ function streamingcenter_makeApiRequest($params, $endpoint, $method = 'POST', $p
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlError = curl_error($ch);
-    curl_close($ch);
+    // No-op since PHP 8.0, and deprecated in 8.5, where it logs a notice per call.
+    if (PHP_VERSION_ID < 80000) {
+        curl_close($ch);
+    }
     
     if ($response === false || !empty($curlError)) {
         return [
@@ -625,6 +649,13 @@ function streamingcenter_CreateAccount(array $params)
                 'limit_bitrate' => $params['configoption6'],
                 'limit_du' => $params['configoption7'],
                 'limit_traffic' => $params['configoption8'],
+            ], streamingcenter_legacySocialFlags([
+                // Raw values ('on' / ''), exactly as this request always sent them.
+                'youtube_streaming_enabled' => $params['configoption9'] ?? '',
+                'fb_streaming_enabled' => $params['configoption10'] ?? '',
+                'vk_streaming_enabled' => $params['configoption11'] ?? '',
+                'tg_streaming_enabled' => $params['configoption12'] ?? '',
+            ]), [
                 'geoblocking_enabled' => $params['configoption13'],
                 'stereo_tool_enabled' => $params['configoption14'],
                 'url_branding_enabled' => $params['configoption15'],
@@ -689,6 +720,13 @@ function streamingcenter_ChangePackage(array $params) {
                 'limit_bitrate' => $params['configoption6'],
                 'limit_du' => $params['configoption7'],
                 'limit_traffic' => $params['configoption8'],
+            ], streamingcenter_legacySocialFlags([
+                // Booleans, exactly as this request always sent them.
+                'youtube_streaming_enabled' => ($params['configoption9'] ?? '') == 'on',
+                'fb_streaming_enabled' => ($params['configoption10'] ?? '') == 'on',
+                'vk_streaming_enabled' => ($params['configoption11'] ?? '') == 'on',
+                'tg_streaming_enabled' => ($params['configoption12'] ?? '') == 'on',
+            ]), [
                 'geoblocking_enabled' => $params['configoption13'] == 'on' ? true : false,
                 'stereo_tool_enabled' => $params['configoption14'] == 'on' ? true : false,
                 'url_branding_enabled' => $params['configoption15'] == 'on' ? true : false,
@@ -848,7 +886,14 @@ function streamingcenter_AdminServicesTabFields(array $params)
             'Maximum bitrate' => '<select name="streamingcenter_limit_bitrate">'.$bitratesOptions.'</select>',
             'Disk quota (megabytes)' => '<input type="number" name="streamingcenter_limit_du" min="0" value="' . ($data->limit_du ?? '') . '" />',
             'Traffic per month (megabytes)' => '<input type="number" name="streamingcenter_limit_traffic" min="0" value="' . ($data->limit_traffic ?? '') . '" />',
-            'Social streams limit (0 = off)' => '<input type="number" name="streamingcenter_limit_social_streams" min="0" value="' . ($data->limit_social_streams ?? '') . '" />',
+            // The four deprecated switches ride along as hidden inputs with the account's
+            // CURRENT values, so the save sends them back unchanged — see
+            // streamingcenter_legacySocialFlags() for why they are still sent at all.
+            'Social streams limit (0 = off)' => '<input type="number" name="streamingcenter_limit_social_streams" min="0" value="' . ($data->limit_social_streams ?? '') . '" />'
+                . (!empty($data->youtube_streaming_enabled) ? '<input type="hidden" name="streamingcenter_youtube_streaming_enabled" value="on" />' : '')
+                . (!empty($data->fb_streaming_enabled) ? '<input type="hidden" name="streamingcenter_fb_streaming_enabled" value="on" />' : '')
+                . (!empty($data->vk_streaming_enabled) ? '<input type="hidden" name="streamingcenter_vk_streaming_enabled" value="on" />' : '')
+                . (!empty($data->tg_streaming_enabled) ? '<input type="hidden" name="streamingcenter_tg_streaming_enabled" value="on" />' : ''),
             'Enable GeoBlocking' => '<input type="checkbox" name="streamingcenter_geoblocking_enabled" value="on" '.($data->geoblocking_enabled ? 'checked' : '').' />',
             'Enable StereoTool audio processing' => '<input type="checkbox" name="streamingcenter_stereo_tool_enabled" value="on" '.($data->stereo_tool_enabled ? 'checked' : '').' />',
             'User can set custom URL for the station' => '<input type="checkbox" name="streamingcenter_url_branding_enabled" value="on" '.($data->url_branding_enabled ? 'checked' : '').' />',
@@ -890,7 +935,13 @@ function streamingcenter_AdminServicesTabFieldsSave(array $params)
             'limit_bitrate' => $_REQUEST['streamingcenter_limit_bitrate'],
             'limit_du' => $_REQUEST['streamingcenter_limit_du'],
             'limit_traffic' => $_REQUEST['streamingcenter_limit_traffic'],
-
+        ], streamingcenter_legacySocialFlags([
+            // From the hidden inputs above: the account's current values, unchanged.
+            'youtube_streaming_enabled' => isset($_REQUEST['streamingcenter_youtube_streaming_enabled']),
+            'fb_streaming_enabled' => isset($_REQUEST['streamingcenter_fb_streaming_enabled']),
+            'vk_streaming_enabled' => isset($_REQUEST['streamingcenter_vk_streaming_enabled']),
+            'tg_streaming_enabled' => isset($_REQUEST['streamingcenter_tg_streaming_enabled']),
+        ]), [
             'geoblocking_enabled' => isset($_REQUEST['streamingcenter_geoblocking_enabled']) ? true : false,
             'stereo_tool_enabled' => isset($_REQUEST['streamingcenter_stereo_tool_enabled']) ? true : false,
             'url_branding_enabled' => isset($_REQUEST['streamingcenter_url_branding_enabled']) ? true : false,
