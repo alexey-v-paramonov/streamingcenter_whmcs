@@ -252,6 +252,65 @@ function streamingcenter_socialLimit(array $params) {
 }
 
 /**
+ * The four deprecated per-platform switches, for the request.
+ *
+ * Still SENT, although the product no longer shows them. This module is upgraded on
+ * each provider's WHMCS independently of the admin panel it talks to, and an admin
+ * panel that predates the social-streams limit builds its package change from these
+ * four values: a request without them reaches its serializer as null, which a
+ * boolean field rejects, and the whole package change (or admin-tab save) fails. A
+ * current panel stores them and acts only on limit_social_streams.
+ *
+ * $values: platform flag => truthy/falsy, in the shape the endpoint already got.
+ */
+function streamingcenter_legacySocialFlags(array $values) {
+    $out = [];
+    foreach (['youtube_streaming_enabled', 'fb_streaming_enabled',
+              'vk_streaming_enabled', 'tg_streaming_enabled'] as $flag) {
+        $out[$flag] = $values[$flag];
+    }
+    return $out;
+}
+
+/**
+ * An API error as one readable string.
+ *
+ * The panel answers some failures with a STRING ("username_exists") and validation
+ * failures with its serializer's errors — an OBJECT of field => [messages], e.g.
+ * {"limit_social_streams": ["reseller_social_limit_exceeded"]}. Callers use the
+ * error as an array key and concatenate it into a message, which with an object
+ * threw TypeError / Error — neither is an Exception, so the module's own catch
+ * blocks did not stop them and provisioning or the package change crashed.
+ *
+ * A lone non-field error becomes "non_field_errors_<code>", the shape the
+ * CreateAccount message table already uses; anything else "field: msg, msg; ...".
+ */
+function streamingcenter_errorText($error) {
+    if (is_string($error)) {
+        return $error;
+    }
+    if (is_scalar($error) || $error === null) {
+        return (string)$error;
+    }
+    $parts = [];
+    foreach ((array)$error as $field => $messages) {
+        $list = [];
+        foreach ((is_array($messages) || is_object($messages)) ? (array)$messages : [$messages] as $m) {
+            $list[] = (is_array($m) || is_object($m)) ? streamingcenter_errorText($m) : (string)$m;
+        }
+        $parts[] = [$field, $list];
+    }
+    if (count($parts) === 1 && $parts[0][0] === 'non_field_errors' && count($parts[0][1]) === 1) {
+        return 'non_field_errors_' . $parts[0][1][0];
+    }
+    $out = [];
+    foreach ($parts as [$field, $list]) {
+        $out[] = (is_int($field) ? '' : $field . ': ') . implode(', ', $list);
+    }
+    return implode('; ', $out);
+}
+
+/**
  * Make API request to Streaming.Center server
  */
 function streamingcenter_makeApiRequest($params, $endpoint, $method = 'POST', $postData = []) {
@@ -298,7 +357,10 @@ function streamingcenter_makeApiRequest($params, $endpoint, $method = 'POST', $p
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlError = curl_error($ch);
-    curl_close($ch);
+    // No-op since PHP 8.0, and deprecated in 8.5, where it logs a notice per call.
+    if (PHP_VERSION_ID < 80000) {
+        curl_close($ch);
+    }
     
     if ($response === false || !empty($curlError)) {
         return [
@@ -315,8 +377,10 @@ function streamingcenter_makeApiRequest($params, $endpoint, $method = 'POST', $p
         ];
     }
     
+    // Always a string from here on: see streamingcenter_errorText().
     if ($httpCode !== 200) {
-        $errorMsg = isset($data->error) ? $data->error : 'HTTP Error ' . $httpCode;
+        $errorMsg = isset($data->error) ? streamingcenter_errorText($data->error)
+                                        : 'HTTP Error ' . $httpCode;
         return [
             'success' => false,
             'error' => $errorMsg
@@ -326,7 +390,7 @@ function streamingcenter_makeApiRequest($params, $endpoint, $method = 'POST', $p
     if (isset($data->error)) {
         return [
             'success' => false,
-            'error' => $data->error
+            'error' => streamingcenter_errorText($data->error)
         ];
     }
     
@@ -625,6 +689,13 @@ function streamingcenter_CreateAccount(array $params)
                 'limit_bitrate' => $params['configoption6'],
                 'limit_du' => $params['configoption7'],
                 'limit_traffic' => $params['configoption8'],
+            ], streamingcenter_legacySocialFlags([
+                // Raw values ('on' / ''), exactly as this request always sent them.
+                'youtube_streaming_enabled' => $params['configoption9'] ?? '',
+                'fb_streaming_enabled' => $params['configoption10'] ?? '',
+                'vk_streaming_enabled' => $params['configoption11'] ?? '',
+                'tg_streaming_enabled' => $params['configoption12'] ?? '',
+            ]), [
                 'geoblocking_enabled' => $params['configoption13'],
                 'stereo_tool_enabled' => $params['configoption14'],
                 'url_branding_enabled' => $params['configoption15'],
@@ -634,8 +705,14 @@ function streamingcenter_CreateAccount(array $params)
                 'save_dj_streams_enabled' => $params['configoption19'],
             ]);        
         }
-        if (array_key_exists('configoption20', $params)) {
-            $postData['hls_enabled'] = $params['configoption20'];
+        // HLS only WITHOUT a template. With one, the template decides, as it does for
+        // every other feature switch — and the product screen disables this checkbox
+        // when a template is chosen (hooks.php), so its value there means nothing.
+        // WHMCS passes every option slot, blank when unset, so "send it when the key
+        // exists" sent an explicit OFF for every template product and switched HLS
+        // off on accounts whose template enables it.
+        if ($params['configoption1'] == 'no_template') {
+            $postData['hls_enabled'] = ($params['configoption20'] ?? '');
         }
         if (streamingcenter_socialLimit($params) !== null) {
             $postData['limit_social_streams'] = streamingcenter_socialLimit($params);
@@ -689,6 +766,13 @@ function streamingcenter_ChangePackage(array $params) {
                 'limit_bitrate' => $params['configoption6'],
                 'limit_du' => $params['configoption7'],
                 'limit_traffic' => $params['configoption8'],
+            ], streamingcenter_legacySocialFlags([
+                // Booleans, exactly as this request always sent them.
+                'youtube_streaming_enabled' => ($params['configoption9'] ?? '') == 'on',
+                'fb_streaming_enabled' => ($params['configoption10'] ?? '') == 'on',
+                'vk_streaming_enabled' => ($params['configoption11'] ?? '') == 'on',
+                'tg_streaming_enabled' => ($params['configoption12'] ?? '') == 'on',
+            ]), [
                 'geoblocking_enabled' => $params['configoption13'] == 'on' ? true : false,
                 'stereo_tool_enabled' => $params['configoption14'] == 'on' ? true : false,
                 'url_branding_enabled' => $params['configoption15'] == 'on' ? true : false,
@@ -698,9 +782,9 @@ function streamingcenter_ChangePackage(array $params) {
                 'save_dj_streams_enabled' => $params['configoption19'] == 'on' ? true : false,
             ]);        
         }
-        // Old products without the new option keep their template/account value.
-        if (array_key_exists('configoption20', $params)) {
-            $postData['hls_enabled'] = $params['configoption20'] == 'on';
+        // Only without a template; see CreateAccount.
+        if ($params['configoption1'] == 'no_template') {
+            $postData['hls_enabled'] = ($params['configoption20'] ?? '') == 'on';
         }
         // Blank = the product predates the option or takes the template's value:
         // send nothing and the account keeps its limit.
@@ -848,7 +932,14 @@ function streamingcenter_AdminServicesTabFields(array $params)
             'Maximum bitrate' => '<select name="streamingcenter_limit_bitrate">'.$bitratesOptions.'</select>',
             'Disk quota (megabytes)' => '<input type="number" name="streamingcenter_limit_du" min="0" value="' . ($data->limit_du ?? '') . '" />',
             'Traffic per month (megabytes)' => '<input type="number" name="streamingcenter_limit_traffic" min="0" value="' . ($data->limit_traffic ?? '') . '" />',
-            'Social streams limit (0 = off)' => '<input type="number" name="streamingcenter_limit_social_streams" min="0" value="' . ($data->limit_social_streams ?? '') . '" />',
+            // The four deprecated switches ride along as hidden inputs with the account's
+            // CURRENT values, so the save sends them back unchanged — see
+            // streamingcenter_legacySocialFlags() for why they are still sent at all.
+            'Social streams limit (0 = off)' => '<input type="number" name="streamingcenter_limit_social_streams" min="0" value="' . ($data->limit_social_streams ?? '') . '" />'
+                . (!empty($data->youtube_streaming_enabled) ? '<input type="hidden" name="streamingcenter_youtube_streaming_enabled" value="on" />' : '')
+                . (!empty($data->fb_streaming_enabled) ? '<input type="hidden" name="streamingcenter_fb_streaming_enabled" value="on" />' : '')
+                . (!empty($data->vk_streaming_enabled) ? '<input type="hidden" name="streamingcenter_vk_streaming_enabled" value="on" />' : '')
+                . (!empty($data->tg_streaming_enabled) ? '<input type="hidden" name="streamingcenter_tg_streaming_enabled" value="on" />' : ''),
             'Enable GeoBlocking' => '<input type="checkbox" name="streamingcenter_geoblocking_enabled" value="on" '.($data->geoblocking_enabled ? 'checked' : '').' />',
             'Enable StereoTool audio processing' => '<input type="checkbox" name="streamingcenter_stereo_tool_enabled" value="on" '.($data->stereo_tool_enabled ? 'checked' : '').' />',
             'User can set custom URL for the station' => '<input type="checkbox" name="streamingcenter_url_branding_enabled" value="on" '.($data->url_branding_enabled ? 'checked' : '').' />',
@@ -890,7 +981,13 @@ function streamingcenter_AdminServicesTabFieldsSave(array $params)
             'limit_bitrate' => $_REQUEST['streamingcenter_limit_bitrate'],
             'limit_du' => $_REQUEST['streamingcenter_limit_du'],
             'limit_traffic' => $_REQUEST['streamingcenter_limit_traffic'],
-
+        ], streamingcenter_legacySocialFlags([
+            // From the hidden inputs above: the account's current values, unchanged.
+            'youtube_streaming_enabled' => isset($_REQUEST['streamingcenter_youtube_streaming_enabled']),
+            'fb_streaming_enabled' => isset($_REQUEST['streamingcenter_fb_streaming_enabled']),
+            'vk_streaming_enabled' => isset($_REQUEST['streamingcenter_vk_streaming_enabled']),
+            'tg_streaming_enabled' => isset($_REQUEST['streamingcenter_tg_streaming_enabled']),
+        ]), [
             'geoblocking_enabled' => isset($_REQUEST['streamingcenter_geoblocking_enabled']) ? true : false,
             'stereo_tool_enabled' => isset($_REQUEST['streamingcenter_stereo_tool_enabled']) ? true : false,
             'url_branding_enabled' => isset($_REQUEST['streamingcenter_url_branding_enabled']) ? true : false,

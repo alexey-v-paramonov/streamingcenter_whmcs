@@ -69,9 +69,27 @@ value alone.
 
 The old options are kept in the product's module settings, marked *(Deprecated)*
 and moved out of Simple Mode, because WHMCS stores module options by position:
-removing them would shift every option after them. They are no longer sent to the
-server. Existing accounts keep the limit the server gave them on upgrade until you
-set a value.
+removing them would shift every option after them. Existing accounts keep the limit
+the server gave them on upgrade until you set a value.
+
+They are still **sent**, with the values they always had, so this module works with
+Streaming.Center servers of either version — upgrade the module and the servers in
+any order:
+
+- a server that predates the limit uses them exactly as before (it rejects a package
+  change that leaves them out);
+- a current server stores them and acts only on *Social streams limit* — except when
+  an account is created without a template and the limit is blank, where any of the
+  four switched on means a limit of 1.
+
+The admin services tab no longer shows them; it carries the account's current values
+through a save unchanged.
+
+### HLS
+
+*Allow HLS streaming* applies to products **without** a template. With a template, the
+template's HLS setting decides — the option is disabled on the product screen when a
+template is selected, and the module sends no override.
 
 ---
 
