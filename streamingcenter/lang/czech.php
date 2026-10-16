@@ -1,0 +1,68 @@
+<?php
+// Streaming.Center WHMCS module – client area texts (Czech, also used for Slovak).
+return [
+    'sso_label'        => 'Otevřít ovládací panel',
+    'not_active'       => 'Služba není aktivní.',
+
+    'load_error'       => 'Přehled rádia se nepodařilo načíst. Zkuste to prosím za chvíli znovu, případně nás kontaktujte přes podporu.',
+    'suspended'        => 'Služba je pozastavená a rádio nevysílá. Po uhrazení faktury se vysílání obnoví automaticky.',
+    'pending'          => 'Rádio se právě připravuje. Obvykle to trvá pár minut, pak stránku obnovte.',
+
+    'status_on'        => 'Vysíláme',
+    'status_off'       => 'Nevysílá',
+    'bitrate_upto'     => 'do %s kbps',
+    'listeners_of'     => 'z %s posluchačů',
+    'listeners'        => 'posluchačů',
+    'live_dj'          => 'Živě',
+    'nothing_playing'  => 'Zatím nic nehraje',
+    'nothing_hint'     => 'Nahrajte hudbu a vytvořte playlist v ovládacím panelu, nebo vysílejte živě přes DJ účet.',
+    'listen'           => 'Poslouchat',
+    'stop'             => 'Zastavit',
+    'loading'          => 'Načítám…',
+    'cant_play'        => 'Stream nejde přehrát',
+
+    'open_panel'       => 'Otevřít ovládací panel',
+    'website'          => 'Web rádia',
+
+    'listen_title'     => 'Adresy pro poslech',
+    'listen_hint'      => 'Tyto odkazy vložte do přehrávače na webu, do aplikací nebo katalogů rádií.',
+    'no_channels'      => 'Streamy se tu objeví, jakmile bude rádio v ovládacím panelu nastavené.',
+    'copy'             => 'Kopírovat',
+    'copied'           => 'Zkopírováno',
+    'listeners_now'    => 'poslouchá %s',
+
+    'live_title'       => 'Živé vysílání',
+    'live_hint'        => 'Pro živé vysílání si v ovládacím panelu vytvořte DJ. Každý DJ dostane vlastní port a heslo; ty spolu se serverem níže zadáte do BUTT, Mixxx, RadioBOSS nebo podobného programu. Mountpoint a uživatel mohou být libovolné, panel typ streamu pozná sám.',
+    'server'           => 'Server',
+    'server_type'      => 'Typ serveru',
+
+    'usage_title'      => 'Využití',
+    'usage_hint'       => 'Aktuální stav vůči vašemu tarifu.',
+    'usage_listeners'  => 'posluchači',
+    'usage_disk'       => 'disk',
+    'usage_traffic'    => 'přenos tento měsíc',
+    'usage_stations'   => 'rádia',
+
+    'plan_title'       => 'Váš tarif',
+    'plan_listeners'   => 'Posluchači',
+    'max_bitrate'      => 'Max. bitrate',
+    'plan_disk'        => 'Místo na disku',
+    'plan_traffic'     => 'Měsíční přenos',
+    'plan_stations'    => 'Počet rádií',
+    'plan_streams'     => 'Kanály (streamy)',
+    'plan_social'      => 'Streamy na sociální sítě',
+    'login_username'   => 'Přihlašovací jméno',
+    'unlimited'        => 'neomezeno',
+    'features_title'   => 'Funkce v tarifu',
+    'feature_podcasts_enabled'        => 'Podcasty',
+    'feature_save_dj_streams_enabled' => 'Nahrávání živých vysílání',
+    'feature_hls_enabled'             => 'HLS streamování',
+    'feature_website_enabled'         => 'Mini-web rádia',
+    'feature_url_branding_enabled'    => 'Vlastní URL',
+    'feature_geoblocking_enabled'     => 'GeoBlocking',
+    'feature_stereo_tool_enabled'     => 'Zpracování zvuku StereoTool',
+    'feature_tts_enabled'             => 'Text-to-Speech',
+
+    'panel_note_before' => 'Do ovládacího panelu se můžete přihlásit i přímo na',
+    'panel_note_after'  => 'svým uživatelským jménem a heslem.',
+];

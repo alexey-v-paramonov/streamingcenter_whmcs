@@ -8,6 +8,8 @@ if (!defined("WHMCS")) {
     die("This file cannot be accessed directly");
 }
 
+require_once __DIR__ . '/lib/extensions.php';
+
 function streamingcenter_MetaData()
 {
     return array(
@@ -504,58 +506,71 @@ function streamingcenter_LoadBroadcasterTemplates($params){
 
 function streamingcenter_ClientArea(array $params)
 {
+    $L = streamingcenter_lang($params);
+    $vars = [
+        'L'      => $L,
+        'L_json' => json_encode([
+            'copy' => $L['copy'], 'copied' => $L['copied'], 'listen' => $L['listen'], 'stop' => $L['stop'],
+            'loading' => $L['loading'], 'cant_play' => $L['cant_play'],
+        ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT),
+        'error'  => null,
+    ];
+
     try {
-        logModuleCall('streamingcenter', __FUNCTION__, $params, "start", "start");
-        
-        // Get account details from API
-        $endpoint = "/api/v1/remote_get_details/";
-        $postData = [
-            'username' => $params['username'],
-            'password' => $params['password']
-        ];
-        
-        $response = streamingcenter_makeApiRequest($params, $endpoint, 'POST', $postData);
-        
-        $accountData = [];
-        if ($response['success']) {
-            $accountData = $response['data'];
+        $info = streamingcenter_info($params);
+        if (!$info) {
+            throw new Exception('Account ' . $params['username'] . ' was not found on the server.');
         }
-        
-        // Prepare template variables
-        $templateVars = [
-            'username' => $params['username'],
-            'domain' => $params['domain'],
-            'serverip' => $params['serverip'],
-            'serverport' => $params['serverport'],
-            'accountData' => $accountData,
-            'serviceSingleSignOnEnabled' => true,
-            'serviceSingleSignOnUrl' => '',
+        $vars = array_merge($vars, $info);
+        $vars['stationName'] = $info['account']['station_name'] ?: (streamingcenter_stationName($params) ?: $params['username']);
+
+        // Server type: configurable option, product setting (without template) or the channel type
+        $labels = [
+            'icecast-kh' => 'Icecast-KH', 'icecast' => 'Icecast', 'shoutcast1' => 'Shoutcast 1',
+            'shoutcast2' => 'Shoutcast 2', 'shoutcast2.6' => 'Shoutcast 2.6',
         ];
-        
-        // Generate Single Sign-On URL if available
-        $ssoResult = streamingcenter_ServiceSingleSignOn($params, true);
-        if (isset($ssoResult['url'])) {
-            $templateVars['serviceSingleSignOnUrl'] = $ssoResult['url'];
+        $overrides = streamingcenter_overrides($params);
+        $type = $overrides['server_type'] ?? ($params['configoption1'] == 'no_template' ? $params['configoption2'] : '');
+        if (!$type && $info['channel_type'] !== '') {
+            $type = streamingcenter_serverType($info['channel_type']) ?: '';
         }
-        
-        logModuleCall('streamingcenter', __FUNCTION__, "success", "success", "success");
-        
-        return [
-            'templatefile' => 'clientarea',
-            'vars' => $templateVars,
+        $vars['serverTypeLabel'] = $labels[$type] ?? ucfirst((string) $info['channel_type']);
+
+        $pct = function ($used, $limit) {
+            return $limit > 0 ? min(100, (int) round($used / $limit * 100)) : 0;
+        };
+        $vars['pct'] = [
+            'listeners' => $pct($info['usage']['listeners'], $info['limits']['listeners']),
+            'du'        => $pct($info['usage']['du_mb'], $info['limits']['du_mb']),
+            'traffic'   => $pct($info['usage']['traffic_mb'], $info['limits']['traffic_mb']),
+            'stations'  => $pct($info['usage']['stations'], $info['limits']['stations']),
         ];
-        
+        $vars['fmt'] = [
+            'du_used'       => streamingcenter_formatMb($info['usage']['du_mb'], '0 MB'),
+            'du_limit'      => streamingcenter_formatMb($info['limits']['du_mb']),
+            'traffic_used'  => streamingcenter_formatMb($info['usage']['traffic_mb'], '0 MB'),
+            'traffic_limit' => streamingcenter_formatMb($info['limits']['traffic_mb']),
+        ];
+        $vars['listenUrl'] = '';
+        foreach ($info['channels'] as $channel) {
+            if ($channel['url'] !== '' && ($channel['active'] || $vars['listenUrl'] === '')) {
+                $vars['listenUrl'] = $channel['url'];
+                if ($channel['active']) {
+                    break;
+                }
+            }
+        }
     } catch (Exception $e) {
         logModuleCall('streamingcenter', __FUNCTION__, $params, $e->getMessage(), $e->getTraceAsString());
-        
-        return [
-            'templatefile' => 'clientarea',
-            'vars' => [
-                'error' => 'Unable to load account information: ' . $e->getMessage(),
-            ],
-        ];
+        $vars['error'] = $e->getMessage();
     }
+
+    return [
+        'tabOverviewReplacementTemplate' => 'templates/clientarea.tpl',
+        'templateVariables'              => $vars,
+    ];
 }
+
 function streamingcenter_ServiceSingleSignOn(array $params, $from_client = false)
 {
     $endpoint = "/api/v1/remote_user_login/";
@@ -717,8 +732,23 @@ function streamingcenter_CreateAccount(array $params)
         if (streamingcenter_socialLimit($params) !== null) {
             $postData['limit_social_streams'] = streamingcenter_socialLimit($params);
         }
-        
-        $response = streamingcenter_makeApiRequest($params, $endpoint, 'POST', $postData);
+
+        // Customer's configurable options (custom package). Without a template they go straight
+        // into the create request; with a template they are applied right after creation.
+        if ($params['configoption1'] == 'no_template') {
+            foreach (streamingcenter_overrides($params) as $key => $value) {
+                $postData[$key] = is_bool($value) ? ($value ? 'on' : '') : $value;
+            }
+        }
+
+        // A retried Create must not fail on "username exists" when the account is the one this
+        // service already created (same username and same e-mail): just finish the setup below.
+        $existing = streamingcenter_getDetails($params);
+        if ($existing && strcasecmp((string) ($existing['email'] ?? ''), (string) $params['clientsdetails']['email']) === 0) {
+            $response = ['success' => true];
+        } else {
+            $response = streamingcenter_makeApiRequest($params, $endpoint, 'POST', $postData);
+        }
         
         if (!$response['success']) {
             $messages = [
@@ -733,6 +763,14 @@ function streamingcenter_CreateAccount(array $params)
             $errorMsg = isset($messages[$errorKey]) ? $messages[$errorKey] : $errorKey;
             
             return "Error: " . $errorMsg;
+        }
+
+        // Station name from the order form, and configurable options on top of a template.
+        // The account is set up in the background, so allow a few attempts to load it.
+        $error = streamingcenter_applyOverrides($params, streamingcenter_stationName($params), 5);
+        if ($error !== null) {
+            return "Error: the account was created, but the custom package / station name could not be applied ("
+                . $error . "). Run Create again to finish the setup.";
         }
         
         logModuleCall('streamingcenter', __FUNCTION__, "success", "success", "success");
@@ -796,6 +834,12 @@ function streamingcenter_ChangePackage(array $params) {
         
         if (!$response['success']) {
             return "Error: " . $response['error'];
+        }
+
+        // Configurable options (custom package) on top of the product settings / template
+        $error = streamingcenter_applyOverrides($params);
+        if ($error !== null) {
+            return "Error: " . $error;
         }
         
         logModuleCall('streamingcenter', __FUNCTION__, "success", "success", "success");
@@ -921,8 +965,16 @@ function streamingcenter_AdminServicesTabFields(array $params)
             $bitratesOptions .= '<option value="' . $rate . '" ' . $selected . '>' . $label . '</option>';
         }
 
+        $limit = function ($value, $suffix = '') {
+            return (int) $value > 0 ? (int) $value . $suffix : '&infin;';
+        };
+        $usage = (int) ($data->listeners_current ?? 0) . ' / ' . $limit($data->limit_listeners ?? 0) . ' listeners, '
+            . streamingcenter_formatMb($data->du_current ?? 0, '0 MB') . ' / ' . (((int) ($data->limit_du ?? 0)) ? streamingcenter_formatMb($data->limit_du) : '&infin;') . ' disk, '
+            . streamingcenter_formatMb($data->traffic_current ?? 0, '0 MB') . ' / ' . (((int) ($data->limit_traffic ?? 0)) ? streamingcenter_formatMb($data->limit_traffic) : '&infin;') . ' traffic this month';
+
         return [
             'Radio account status' => '<b>'.$data->account_status_display.'</b>',
+            'Current usage' => $usage,
             'Port' => '<input type="number" name="streamingcenter_panel_port" value="' . ($data->panel_port ?? '') . '" />',
             'Station Name' => '<input type="text" size=50 name="streamingcenter_station_name" value="' . ($data->station_name ?? '') . '" />',
             'Website' => '<input type="url" size=50 name="streamingcenter_website_url" value="' . ($data->website_url ?? '') . '" />',
@@ -1078,6 +1130,65 @@ function streamingcenter_ChangePassword(array $params) {
         logModuleCall('streamingcenter', __FUNCTION__, "success", "success", "success");
         return 'success';
         
+    } catch (Exception $e) {
+        logModuleCall('streamingcenter', __FUNCTION__, $params, $e->getMessage(), $e->getTraceAsString());
+        return $e->getMessage();
+    }
+}
+
+function streamingcenter_AdminCustomButtonArray()
+{
+    return [
+        'Login as client'           => 'loginAsClient',
+        'Re-apply package options'  => 'reapplyPackage',
+    ];
+}
+
+/** Opens the broadcaster interface as the client (Login to Admin area stays the module's SSO). */
+function streamingcenter_loginAsClient(array $params)
+{
+    $result = streamingcenter_ServiceSingleSignOn($params);
+    if (!empty($result['success']) && !empty($result['redirectTo'])) {
+        header('Location: ' . $result['redirectTo']);
+        exit;
+    }
+    return $result['errorMsg'] ?? 'Error: no login URL received';
+}
+
+function streamingcenter_reapplyPackage(array $params)
+{
+    return streamingcenter_ChangePackage($params);
+}
+
+/** Disk and traffic usage (MB) into WHMCS, run by the daily cron. */
+function streamingcenter_UsageUpdate(array $params)
+{
+    try {
+        $services = \WHMCS\Database\Capsule::table('tblhosting')
+            ->join('tblproducts', 'tblproducts.id', '=', 'tblhosting.packageid')
+            ->where('tblproducts.servertype', 'streamingcenter')
+            ->where('tblhosting.server', (int) $params['serverid'])
+            ->whereIn('tblhosting.domainstatus', ['Active', 'Suspended'])
+            ->select('tblhosting.id', 'tblhosting.username')
+            ->get();
+
+        foreach ($services as $service) {
+            if ((string) $service->username === '') {
+                continue;
+            }
+            $d = streamingcenter_getDetails($params, $service->username);
+            if (!$d) {
+                continue;
+            }
+            \WHMCS\Database\Capsule::table('tblhosting')->where('id', (int) $service->id)->update([
+                'diskusage'  => (int) round((float) ($d['du_current'] ?? 0)),
+                'disklimit'  => (int) ($d['limit_du'] ?? 0),
+                'bwusage'    => (int) round((float) ($d['traffic_current'] ?? 0)),
+                'bwlimit'    => (int) ($d['limit_traffic'] ?? 0),
+                'lastupdate' => \WHMCS\Database\Capsule::raw('now()'),
+            ]);
+        }
+        return 'success';
     } catch (Exception $e) {
         logModuleCall('streamingcenter', __FUNCTION__, $params, $e->getMessage(), $e->getTraceAsString());
         return $e->getMessage();

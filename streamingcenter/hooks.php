@@ -7,6 +7,28 @@ use WHMCS\View\Menu\Item;
 use WHMCS\Product\Product;
 use WHMCS\Service\Service;
 
+require_once __DIR__ . '/lib/extensions.php';
+
+if (!function_exists('streamingcenter_hooks_loadModule')) {
+    /** Loads the module through the WHMCS module loader, so its functions are never declared twice. */
+    function streamingcenter_hooks_loadModule()
+    {
+        if (function_exists('streamingcenter_makeApiRequest')) {
+            return true;
+        }
+        try {
+            if (class_exists('\\WHMCS\\Module\\Server')) {
+                (new \WHMCS\Module\Server())->load('streamingcenter');
+            }
+        } catch (\Throwable $e) {
+        }
+        if (!function_exists('streamingcenter_makeApiRequest')) {
+            require_once __DIR__ . '/streamingcenter.php';
+        }
+        return function_exists('streamingcenter_makeApiRequest');
+    }
+}
+
 add_hook('OverrideModuleUsernameGeneration', 1, function(array $params) {
 
     $MAX_CHARS = 16;
@@ -24,8 +46,17 @@ add_hook('OverrideModuleUsernameGeneration', 1, function(array $params) {
         "username"
     );
 
+    # Based on the station name entered on the order form ("Station name" / "Radio name" custom field)
+    $username = '';
+    try {
+        $username = preg_replace("/[^a-zA-Z]+/", "", streamingcenter_ascii((string) streamingcenter_stationName($params)));
+    } catch (\Throwable $e) {
+    }
+
     # Based on company name
-    $username = preg_replace("/[^a-zA-Z]+/", "", $params['clientsdetails']['companyname']);
+    if(empty($username)){
+        $username = preg_replace("/[^a-zA-Z]+/", "", $params['clientsdetails']['companyname']);
+    }
     if(empty($username)){
         # Use user name
         $username = preg_replace("/[^a-zA-Z]+/", "", $params['clientsdetails']['fullname']);
@@ -124,7 +155,42 @@ JAVASCRIPT;
         $productId = (int) $_GET['id'];
         $product = Product::find($productId);
         if ($product && $product->module === 'streamingcenter') {    
+            $ccoUrl = 'configproducts.php?action=edit&id=' . $productId . '&streamingcenter_create_options=1'
+                . (function_exists('generate_token') ? '&token=' . generate_token('plain') : '');
+            $ccoMessage = '';
+            if (!empty($_SESSION['streamingcenter_cco_message'])) {
+                $ccoMessage = json_encode($_SESSION['streamingcenter_cco_message']);
+                unset($_SESSION['streamingcenter_cco_message']);
+            }
+            $ccoUrlJs = json_encode($ccoUrl);
+            $ccoMessageJs = $ccoMessage ?: 'null';
             return <<<JAVASCRIPT
+<script>
+jQuery(document).ready(function(){
+    // "Create configurable options" button (custom packages)
+    function addCreateOptionsButton() {
+        if (jQuery('#streamingcenter-cco').length || !jQuery("[name='packageconfigoption[1]']").length) {
+            return;
+        }
+        var msg = {$ccoMessageJs};
+        var box = jQuery('<div id="streamingcenter-cco" style="margin:15px 0"></div>');
+        if (msg) {
+            box.append(jQuery('<div class="alert"></div>').addClass(msg.ok ? 'alert-success' : 'alert-warning').text(msg.text));
+        }
+        box.append(jQuery('<a class="btn btn-default"></a>').attr('href', {$ccoUrlJs})
+            .text('Create configurable options (custom packages)'));
+        box.append(jQuery('<span class="text-muted" style="margin-left:10px"></span>')
+            .text('Adds listeners, bitrate, disk, traffic and feature options to this product, priced at 0.'));
+        jQuery("[name='packageconfigoption[1]']").closest('table').after(box);
+    }
+    addCreateOptionsButton();
+    jQuery(document).ajaxComplete(function(event, xhr, settings) {
+        if (settings.url.includes('configproducts.php')) {
+            addCreateOptionsButton();
+        }
+    });
+});
+</script>
 <script>
 jQuery(document).ready(function(){
     var watchSelector = "[name='packageconfigoption[1]']";
@@ -179,4 +245,120 @@ jQuery(document).ready(function(){
 JAVASCRIPT;
     }
  }
+});
+
+// "Create configurable options" button on the product's Module Settings tab
+add_hook('AdminAreaPage', 1, function($vars) {
+    if (($vars['filename'] ?? '') !== 'configproducts' || empty($_GET['streamingcenter_create_options']) || empty($_GET['id'])) {
+        return [];
+    }
+    if (function_exists('check_token')) {
+        check_token('WHMCS.admin.default');
+    }
+    $productId = (int) $_GET['id'];
+    try {
+        [$ok, $text] = streamingcenter_createConfigurableOptions($productId);
+    } catch (\Throwable $e) {
+        [$ok, $text] = [false, 'Could not create the configurable options: ' . $e->getMessage()];
+    }
+    $_SESSION['streamingcenter_cco_message'] = ['ok' => $ok, 'text' => $text];
+    header('Location: configproducts.php?action=edit&id=' . $productId . '&tab=3');
+    exit;
+});
+
+// Merge fields for welcome / product emails: {$radio_*}
+add_hook('EmailTplMergeFields', 1, function($vars) {
+    return [
+        'radio_name'          => 'Streaming.Center: station name',
+        'radio_username'      => 'Streaming.Center: login username',
+        'radio_panel_url'     => 'Streaming.Center: broadcaster panel URL',
+        'radio_server_host'   => 'Streaming.Center: server for live broadcasting',
+        'radio_listen_url'    => 'Streaming.Center: main stream URL',
+        'radio_streams_html'  => 'Streaming.Center: all stream URLs (HTML)',
+        'radio_max_listeners' => 'Streaming.Center: listener limit',
+        'radio_max_bitrate'   => 'Streaming.Center: bitrate limit',
+        'radio_storage'       => 'Streaming.Center: disk space',
+        'radio_traffic'       => 'Streaming.Center: monthly traffic',
+        'radio_features'      => 'Streaming.Center: enabled features',
+    ];
+});
+
+add_hook('EmailPreSend', 1, function($vars) {
+    $serviceId = (int) ($vars['relid'] ?? 0);
+    if ($serviceId <= 0) {
+        return [];
+    }
+    try {
+        // relid is a service id only for Product/Service email templates
+        $type = Capsule::table('tblemailtemplates')->where('name', (string) ($vars['messagename'] ?? ''))->value('type');
+        if ($type !== 'product') {
+            return [];
+        }
+        $service = Capsule::table('tblhosting')
+            ->join('tblproducts', 'tblproducts.id', '=', 'tblhosting.packageid')
+            ->where('tblhosting.id', $serviceId)
+            ->where('tblproducts.servertype', 'streamingcenter')
+            ->select('tblhosting.userid', 'tblhosting.server', 'tblhosting.username', 'tblhosting.password')
+            ->first();
+        if (!$service || (string) $service->username === '') {
+            return [];
+        }
+        $server = Capsule::table('tblservers')->where('id', (int) $service->server)->first();
+        if (!$server || !streamingcenter_hooks_loadModule()) {
+            return [];
+        }
+        $params = [
+            'serverid'         => (int) $server->id,
+            'serverhostname'   => (string) ($server->hostname ?: $server->ipaddress),
+            'serverhttpprefix' => $server->secure ? 'https' : 'http',
+            'serverport'       => (string) ($server->port ?: '2345'),
+            'serverusername'   => (string) $server->username,
+            'serverpassword'   => (string) decrypt($server->password),
+            'username'         => (string) $service->username,
+            'password'         => (string) decrypt($service->password),
+        ];
+        $info = streamingcenter_info($params, false);
+        if (!$info) {
+            return [];
+        }
+
+        $language = Capsule::table('tblclients')->where('id', (int) $service->userid)->value('language')
+            ?: Capsule::table('tblconfiguration')->where('setting', 'Language')->value('value');
+        $L = streamingcenter_langFile($language);
+
+        $streamsHtml = '';
+        $listenUrl = '';
+        foreach ($info['channels'] as $channel) {
+            if ($channel['url'] === '') {
+                continue;
+            }
+            $listenUrl = $listenUrl ?: $channel['url'];
+            $streamsHtml .= '<div style="margin:0 0 6px">' . htmlspecialchars($channel['name'] ?: 'Stream') . ': '
+                . '<a href="' . htmlspecialchars($channel['url']) . '">' . htmlspecialchars($channel['url']) . '</a></div>';
+        }
+        $features = [];
+        foreach ($info['features'] as $flag => $on) {
+            if ($on && isset($L['feature_' . $flag])) {
+                $features[] = $L['feature_' . $flag];
+            }
+        }
+        $limits = $info['limits'];
+
+        return [
+            'radio_name'          => $info['account']['station_name'] ?: (string) $service->username,
+            'radio_username'      => (string) $service->username,
+            'radio_panel_url'     => $info['account']['panel_url'],
+            'radio_server_host'   => $info['account']['host'],
+            'radio_listen_url'    => $listenUrl,
+            'radio_streams_html'  => $streamsHtml,
+            'radio_max_listeners' => $limits['listeners'] ?: $L['unlimited'],
+            'radio_max_bitrate'   => $limits['bitrate'] ? $limits['bitrate'] . ' kbps' : $L['unlimited'],
+            'radio_storage'       => streamingcenter_formatMb($limits['du_mb'], $L['unlimited']),
+            'radio_traffic'       => streamingcenter_formatMb($limits['traffic_mb'], $L['unlimited']),
+            'radio_features'      => implode(', ', $features),
+        ];
+    } catch (\Throwable $e) {
+        logActivity('Streaming.Center: email sent without station details (service #' . $serviceId . '): ' . $e->getMessage());
+        return [];
+    }
 });
