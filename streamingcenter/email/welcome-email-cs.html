@@ -1,0 +1,63 @@
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;color:#1d2633;font-size:15px;line-height:1.55;">
+<tr><td>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#13233f;border-radius:10px;">
+    <tr><td style="padding:24px 26px;">
+      <div style="color:#9fb0c9;font-size:14px;margin:0 0 6px;">Vaše rádio je připravené</div>
+      <div style="color:#ffffff;font-size:26px;font-weight:bold;line-height:1.2;">{if $radio_name}{$radio_name}{else}{$service_product_name}{/if}</div>
+      {if $radio_max_listeners}<div style="color:#9fb0c9;font-size:14px;margin-top:6px;">{$radio_max_listeners} posluchačů, {$radio_max_bitrate}</div>{/if}
+    </td></tr>
+  </table>
+
+  <p style="margin:24px 0 12px;">Dobrý den, {$client_first_name},</p>
+  <p style="margin:0 0 20px;">děkujeme za objednávku. Rádio je založené: v ovládacím panelu nahrajte hudbu a vytvořte playlist, nebo začněte vysílat živě přes DJ účet.</p>
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Ovládací panel</h3>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #e3e8ef;">
+    {if $radio_panel_url}<tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;width:38%;">Adresa</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;"><a href="{$radio_panel_url}" style="color:#2f6fde;">{$radio_panel_url}</a></td></tr>{/if}
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Uživatelské jméno</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;font-family:Consolas,Menlo,monospace;">{$service_username}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Heslo</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;font-family:Consolas,Menlo,monospace;">{$service_password}</td></tr>
+  </table>
+  <p style="margin:10px 0 0;font-size:13px;color:#5b6676;">Do panelu se dostanete i bez hesla tlačítkem „Otevřít ovládací panel“ v klientské sekci: <a href="{$whmcs_url}clientarea.php?action=productdetails&amp;id={$service_id}" style="color:#2f6fde;">{$whmcs_url}clientarea.php</a></p>
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Poslech</h3>
+  {if $radio_streams_html}
+  <div style="font-size:13px;font-family:Consolas,Menlo,monospace;word-break:break-all;border-top:1px solid #e3e8ef;border-bottom:1px solid #e3e8ef;padding:10px 0 4px;">{$radio_streams_html}</div>
+  {else}
+  <p style="margin:0 0 8px;font-size:13px;color:#5b6676;">Adresy streamů najdete v klientské sekci, jakmile bude rádio v panelu nastavené (obvykle do pár minut).</p>
+  {/if}
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Živé vysílání</h3>
+  <p style="margin:0 0 8px;font-size:13px;color:#5b6676;">V ovládacím panelu si vytvořte DJ. Každý DJ dostane vlastní port a heslo, které spolu se serverem zadáte do BUTT, Mixxx, RadioBOSS a podobných programů.</p>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #e3e8ef;">
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;width:38%;">Server</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;font-family:Consolas,Menlo,monospace;">{$radio_server_host}</td></tr>
+  </table>
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Váš tarif</h3>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #e3e8ef;">
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;width:38%;">Služba</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$service_product_name}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Posluchači</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_max_listeners}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Max. bitrate</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_max_bitrate}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Místo na disku</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_storage}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Měsíční přenos</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_traffic}</td></tr>
+    {if $radio_features}<tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Funkce</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_features}</td></tr>{/if}
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Další platba</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$service_recurring_amount} ({$service_billing_cycle}), splatnost {$service_next_due_date}</td></tr>
+  </table>
+
+  <p style="margin:24px 0 0;">Tento e-mail obsahuje přístupové údaje, uschovejte si ho prosím na bezpečném místě. S čímkoli vám rádi pomůžeme přes podporu v klientské sekci.</p>
+
+  <p style="margin:20px 0 0;">{$signature}</p>
+
+</td></tr>
+</table>

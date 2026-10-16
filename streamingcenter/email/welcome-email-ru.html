@@ -1,0 +1,63 @@
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;color:#1d2633;font-size:15px;line-height:1.55;">
+<tr><td>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#13233f;border-radius:10px;">
+    <tr><td style="padding:24px 26px;">
+      <div style="color:#9fb0c9;font-size:14px;margin:0 0 6px;">Ваше радио готово</div>
+      <div style="color:#ffffff;font-size:26px;font-weight:bold;line-height:1.2;">{if $radio_name}{$radio_name}{else}{$service_product_name}{/if}</div>
+      {if $radio_max_listeners}<div style="color:#9fb0c9;font-size:14px;margin-top:6px;">{$radio_max_listeners} слушателей, {$radio_max_bitrate}</div>{/if}
+    </td></tr>
+  </table>
+
+  <p style="margin:24px 0 12px;">Здравствуйте, {$client_first_name}!</p>
+  <p style="margin:0 0 20px;">Спасибо за заказ. Радио создано: загрузите музыку и создайте плейлист в панели управления или выйдите в прямой эфир через DJ-аккаунт.</p>
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Панель управления</h3>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #e3e8ef;">
+    {if $radio_panel_url}<tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;width:38%;">Адрес</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;"><a href="{$radio_panel_url}" style="color:#2f6fde;">{$radio_panel_url}</a></td></tr>{/if}
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Логин</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;font-family:Consolas,Menlo,monospace;">{$service_username}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Пароль</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;font-family:Consolas,Menlo,monospace;">{$service_password}</td></tr>
+  </table>
+  <p style="margin:10px 0 0;font-size:13px;color:#5b6676;">Войти в панель без пароля можно кнопкой «Открыть панель управления» в личном кабинете: <a href="{$whmcs_url}clientarea.php?action=productdetails&amp;id={$service_id}" style="color:#2f6fde;">{$whmcs_url}clientarea.php</a></p>
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Прослушивание</h3>
+  {if $radio_streams_html}
+  <div style="font-size:13px;font-family:Consolas,Menlo,monospace;word-break:break-all;border-top:1px solid #e3e8ef;border-bottom:1px solid #e3e8ef;padding:10px 0 4px;">{$radio_streams_html}</div>
+  {else}
+  <p style="margin:0 0 8px;font-size:13px;color:#5b6676;">Ссылки на потоки появятся в личном кабинете, как только радио будет настроено в панели (обычно в течение нескольких минут).</p>
+  {/if}
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Прямой эфир</h3>
+  <p style="margin:0 0 8px;font-size:13px;color:#5b6676;">Создайте DJ в панели управления. Каждый DJ получает свой порт и пароль, которые вместе с сервером ниже указываются в BUTT, Mixxx, RadioBOSS или похожей программе.</p>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #e3e8ef;">
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;width:38%;">Сервер</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;font-family:Consolas,Menlo,monospace;">{$radio_server_host}</td></tr>
+  </table>
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Ваш тариф</h3>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #e3e8ef;">
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;width:38%;">Услуга</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$service_product_name}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Слушатели</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_max_listeners}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Макс. битрейт</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_max_bitrate}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Место на диске</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_storage}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Трафик в месяц</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_traffic}</td></tr>
+    {if $radio_features}<tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Функции</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_features}</td></tr>{/if}
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Следующий платёж</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$service_recurring_amount} ({$service_billing_cycle}), до {$service_next_due_date}</td></tr>
+  </table>
+
+  <p style="margin:24px 0 0;">Это письмо содержит данные для входа — сохраните его в надёжном месте. Если понадобится помощь, наша поддержка всегда на связи через личный кабинет.</p>
+
+  <p style="margin:20px 0 0;">{$signature}</p>
+
+</td></tr>
+</table>

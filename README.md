@@ -13,6 +13,11 @@ It allows WHMCS to automatically provision, manage, and terminate services withi
 - Configurable module settings
 - Integration with WHMCS billing cycles
 - Supports latest WHMCS versions
+- Custom packages through WHMCS configurable options (also on top of templates)
+- Station name and username taken from the order form
+- Client area overview in English, Czech and Russian
+- Welcome email templates with stream URLs and plan details
+- Disk and traffic usage sync into WHMCS
 
 ---
 
@@ -90,6 +95,65 @@ through a save unchanged.
 *Allow HLS streaming* applies to products **without** a template. With a template, the
 template's HLS setting decides — the option is disabled on the product screen when a
 template is selected, and the module sends no override.
+
+### Custom packages (configurable options)
+
+Customers can build their own package on the order form. On the product's **Module Settings**
+tab click **Create configurable options (custom packages)**: the module creates a configurable
+option group for the product (all prices 0) that you then adjust under
+**System Settings > Configurable Options**. You can also create the options by hand: the option
+name (part before `|`) selects the account field and the selected value (part before `|`) is used.
+
+| Option name | Type | Example choices | Account field |
+|---|---|---|---|
+| `server_type\|Streaming server` | Dropdown | `icecast-kh\|Icecast-KH`, `icecast\|Icecast`, `shoutcast2\|Shoutcast 2`, `shoutcast2.6\|Shoutcast 2.6` | server_type |
+| `listeners\|Listeners` | Dropdown | `100\|100 listeners`, `0\|Unlimited` | limit_listeners |
+| `bitrate\|Max. bitrate` | Dropdown | `64\|64 kbps`, `128\|128 kbps`, `320\|320 kbps` | limit_bitrate |
+| `storage\|Disk space` | Dropdown / Quantity | `5 GB\|5 GB`, `20 GB\|20 GB` | limit_du |
+| `traffic\|Monthly traffic` | Dropdown | `500 GB\|500 GB`, `1 TB\|1 TB`, `0\|Unlimited` | limit_traffic |
+| `stations\|Radios` | Dropdown / Quantity | `1`, `2`, `5` | limit_stations |
+| `channels\|Channels` | Dropdown / Quantity | `1`, `2`, `3` | limit_streams |
+| `social\|Social streams` | Dropdown / Quantity | `0\|None`, `1\|1 stream` | limit_social_streams |
+| `podcasts`, `recordings`, `hls`, `website`, `url_branding`, `geoblocking`, `stereotool`, `tts` | Yes/No | – | the matching `*_enabled` switch |
+
+- `0` means unlimited. For disk and traffic a bare number is GB (`20` = 20 GB); `500 MB`, `5 GB`, `1 TB` also work.
+- Bitrates are rounded down to a value Streaming.Center supports (24, 32, 64, 96, 128, 192, 256, 320).
+- With a template the account is created from the template and the customer's choices are applied right after;
+  without a template they are sent in the create request. Upgrades/downgrades are applied on Change Package.
+- Options a product does not have keep the product settings / template values.
+
+### Station name and username
+
+Add a product custom field named **Station name** (or *Radio name*; any field whose name contains
+"radio" or "station" works, also in Czech and Russian) and tick *Show on Order Form*. The value becomes
+the station name in Streaming.Center and the base of the generated username. Without it the username is
+generated as before (company name, then client name).
+
+### Client area
+
+The service Overview tab shows on-air status, listeners, now playing (with a play button), stream URLs
+with copy buttons, live broadcasting instructions, listener/disk/traffic usage bars, the plan and its
+features, and a button to open the broadcaster interface. Streams and "now playing" come from the
+broadcaster panel's public API (`/api/v2/channels/`, `/api/v2/history/`). Data is cached for 45 seconds.
+
+Texts are in `streamingcenter/lang/`: `english.php` (default), `czech.php` (also Slovak) and
+`russian.php` (also Ukrainian). To add a language, copy `english.php` to `lang/<WHMCS language name>.php`
+and translate it; missing keys fall back to English.
+
+### Welcome email
+
+`streamingcenter/email/` has welcome templates in English, Czech and Russian. Create a **Product/Service**
+email template, paste the HTML in source mode (add the other languages as translations of the same
+template) and select it as the product's Welcome Email. Merge fields: `{$radio_name}`, `{$radio_username}`,
+`{$radio_panel_url}`, `{$radio_server_host}`, `{$radio_listen_url}`, `{$radio_streams_html}`,
+`{$radio_max_listeners}`, `{$radio_max_bitrate}`, `{$radio_storage}`, `{$radio_traffic}`, `{$radio_features}`.
+
+### Admin
+
+The services tab shows current usage. Extra buttons: **Login as client** (opens the broadcaster interface)
+and **Re-apply package options**. Disk and traffic usage is synced into WHMCS by the daily cron (Usage Update).
+A failed Create can be run again: an account with the same username and e-mail is completed instead of
+failing with "username exists".
 
 ---
 

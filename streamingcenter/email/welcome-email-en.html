@@ -1,0 +1,63 @@
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family:Arial,Helvetica,sans-serif;color:#1d2633;font-size:15px;line-height:1.55;">
+<tr><td>
+
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#13233f;border-radius:10px;">
+    <tr><td style="padding:24px 26px;">
+      <div style="color:#9fb0c9;font-size:14px;margin:0 0 6px;">Your radio station is ready</div>
+      <div style="color:#ffffff;font-size:26px;font-weight:bold;line-height:1.2;">{if $radio_name}{$radio_name}{else}{$service_product_name}{/if}</div>
+      {if $radio_max_listeners}<div style="color:#9fb0c9;font-size:14px;margin-top:6px;">{$radio_max_listeners} listeners, {$radio_max_bitrate}</div>{/if}
+    </td></tr>
+  </table>
+
+  <p style="margin:24px 0 12px;">Hello {$client_first_name},</p>
+  <p style="margin:0 0 20px;">thank you for your order. Your radio is set up: upload music and create a playlist in the control panel, or go live with a DJ account.</p>
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Control panel</h3>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #e3e8ef;">
+    {if $radio_panel_url}<tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;width:38%;">Address</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;"><a href="{$radio_panel_url}" style="color:#2f6fde;">{$radio_panel_url}</a></td></tr>{/if}
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Username</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;font-family:Consolas,Menlo,monospace;">{$service_username}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Password</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;font-family:Consolas,Menlo,monospace;">{$service_password}</td></tr>
+  </table>
+  <p style="margin:10px 0 0;font-size:13px;color:#5b6676;">You can also open the control panel without a password using the “Open control panel” button in your client area: <a href="{$whmcs_url}clientarea.php?action=productdetails&amp;id={$service_id}" style="color:#2f6fde;">{$whmcs_url}clientarea.php</a></p>
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Listening</h3>
+  {if $radio_streams_html}
+  <div style="font-size:13px;font-family:Consolas,Menlo,monospace;word-break:break-all;border-top:1px solid #e3e8ef;border-bottom:1px solid #e3e8ef;padding:10px 0 4px;">{$radio_streams_html}</div>
+  {else}
+  <p style="margin:0 0 8px;font-size:13px;color:#5b6676;">Your stream URLs will appear in the client area once the radio is set up in the panel (usually within a few minutes).</p>
+  {/if}
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Going live</h3>
+  <p style="margin:0 0 8px;font-size:13px;color:#5b6676;">Create a DJ in the control panel. Each DJ gets their own port and password, which you enter together with the server below in BUTT, Mixxx, RadioBOSS or similar software.</p>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #e3e8ef;">
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;width:38%;">Server</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;font-family:Consolas,Menlo,monospace;">{$radio_server_host}</td></tr>
+  </table>
+
+  <h3 style="font-size:17px;margin:26px 0 8px;color:#1d2633;">Your plan</h3>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #e3e8ef;">
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;width:38%;">Service</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$service_product_name}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Listeners</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_max_listeners}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Max. bitrate</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_max_bitrate}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Disk space</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_storage}</td></tr>
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Monthly traffic</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_traffic}</td></tr>
+    {if $radio_features}<tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Features</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$radio_features}</td></tr>{/if}
+    <tr><td style="padding:9px 0;border-bottom:1px solid #e3e8ef;color:#5b6676;">Next payment</td>
+        <td style="padding:9px 0;border-bottom:1px solid #e3e8ef;">{$service_recurring_amount} ({$service_billing_cycle}), due {$service_next_due_date}</td></tr>
+  </table>
+
+  <p style="margin:24px 0 0;">This email contains your login details, so please keep it somewhere safe. If you need anything, our support team is happy to help via the client area.</p>
+
+  <p style="margin:20px 0 0;">{$signature}</p>
+
+</td></tr>
+</table>
